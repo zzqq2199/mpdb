@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DPDB Web Debugger</title>
+    <style>
+        :root {
+            --bg: #0f111a;
+            --panel: #151826;
+            --panel-2: #1b2032;
+            --border: rgba(255, 255, 255, 0.12);
+            --text: #d7dae0;
+            --muted: rgba(215, 218, 224, 0.70);
+            --accent: #4ea1ff;
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            --station-ranks-width: 96px;
+            --station-watch-width: 280px;
+            --station-divider-width: 8px;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            background: radial-gradient(1200px 600px at 30% -10%, rgba(78, 161, 255, 0.12), transparent 50%),
+                        radial-gradient(1000px 500px at 90% 10%, rgba(173, 117, 255, 0.10), transparent 55%),
+                        var(--bg);
+            color: var(--text);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        .app {
+            height: 100%;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            gap: 12px;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+        }
+
+        .title {
+            font-size: 14px;
+            letter-spacing: 0.2px;
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .output {
+            border: 1px solid var(--border);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.02));
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            display: grid;
+            grid-template-rows: auto 1fr;
+        }
+
+        .output-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.10);
+        }
+
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .view-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.10);
+        }
+
+        .toggle-btn {
+            padding: 6px 10px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            font: inherit;
+            font-size: 12px;
+        }
+
+        .toggle-btn.active {
+            border-color: rgba(78, 161, 255, 0.35);
+            background: rgba(78, 161, 255, 0.15);
+            color: var(--text);
+        }
+
+        .badge {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        #output {
+            padding: 12px 14px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            line-height: 1.45;
+            background: transparent;
+        }
+
+        .rank-group {
+            margin: 10px 0 14px;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.10);
+        }
+
+        .rank-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 10px;
+        }
+
+        .tiled-view {
+            display: block;
+        }
+
+        .station-view {
+            display: none;
+        }
+
+        body.mode-tiled .tiled-view {
+            display: block;
+        }
+
+        body.mode-tiled .station-view {
+            display: none;
+        }
+
+        body.mode-station .tiled-view {
+            display: none;
+        }
+
+        body.mode-station .station-view {
+            display: grid;
+        }
+
+        .station-view {
+            gap: 10px;
+            align-items: stretch;
+            height: min(520px, 70vh);
+            overflow: hidden;
+        }
+
+        body.mode-station:not(.watch-enabled) .station-view {
+            grid-template-columns: 1fr var(--station-ranks-width);
+        }
+
+        body.mode-station.watch-enabled .station-view {
+            grid-template-columns: 1fr var(--station-ranks-width) var(--station-divider-width) var(--station-watch-width);
+        }
+
+        .station-main {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+            display: grid;
+            grid-template-rows: auto 1fr;
+            min-height: 260px;
+        }
+
+        .station-main-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 10px;
+            background: rgba(0, 0, 0, 0.15);
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .station-main-body {
+            padding: 10px;
+            white-space: pre-wrap;
+            overflow: auto;
+        }
+
+        .station-side {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.08);
+            display: grid;
+            grid-template-rows: auto 1fr;
+        }
+
+        .station-side-header {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+            color: var(--muted);
+            background: rgba(0, 0, 0, 0.15);
+            text-align: center;
+            user-select: none;
+        }
+
+        .station-side-list {
+            overflow: auto;
+            padding: 10px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .station-side.station-ranks .station-side-list {
+            padding: 10px 8px;
+            gap: 8px;
+            grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+            align-content: start;
+        }
+
+        .station-side.station-ranks .station-side-list::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .station-side.station-ranks .station-side-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .station-side.station-ranks .station-side-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.18);
+            border-radius: 999px;
+            border: 2px solid rgba(0, 0, 0, 0.25);
+        }
+
+        .station-side.station-ranks .station-side-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.26);
+        }
+
+        .station-divider {
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            cursor: col-resize;
+        }
+
+        .station-divider:hover {
+            background: rgba(78, 161, 255, 0.16);
+        }
+
+        body.mode-station:not(.watch-enabled) .station-divider {
+            display: none;
+        }
+
+        body.mode-station:not(.watch-enabled) .station-watch {
+            display: none;
+        }
+
+        .watch-row {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .watch-row:last-child {
+            border-bottom: none;
+        }
+
+        .watch-expr {
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 6px;
+            word-break: break-word;
+        }
+
+        .watch-val {
+            font-size: 12px;
+            color: var(--text);
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .station-rank-btn {
+            appearance: none;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+            text-align: center;
+            padding: 6px 0;
+            font: inherit;
+            font-size: 13px;
+            font-variant-numeric: tabular-nums;
+            color: var(--text);
+            line-height: 1;
+        }
+
+        .station-rank-btn:hover {
+            border-color: rgba(78, 161, 255, 0.45);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .station-rank-btn.active {
+            border-color: rgba(78, 161, 255, 0.45);
+            box-shadow: 0 0 0 2px rgba(78, 161, 255, 0.10) inset;
+            background: rgba(78, 161, 255, 0.16);
+            color: #eaf2ff;
+        }
+
+        .rank-card {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .rank-card:hover {
+            border-color: rgba(78, 161, 255, 0.45);
+        }
+
+        .rank-card-header {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            z-index: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px 8px;
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.18);
+            font-size: 12px;
+            color: rgba(215, 218, 224, 0.80);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .rank-card-body {
+            padding: 32px 10px 10px;
+            white-space: pre-wrap;
+            max-height: 220px;
+            overflow: auto;
+        }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 9999;
+        }
+
+        .modal.open {
+            display: flex;
+        }
+
+        .modal-content {
+            width: min(1100px, 96vw);
+            height: min(80vh, 900px);
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+            display: grid;
+            grid-template-rows: auto 1fr;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.15);
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .modal-body {
+            padding: 12px;
+            overflow: auto;
+            white-space: pre-wrap;
+        }
+
+        .modal-close {
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            color: var(--text);
+            font: inherit;
+        }
+
+        .input {
+            border: 1px solid var(--border);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+            padding: 12px;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+        }
+
+        #command-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--panel-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            outline: none;
+            font: inherit;
+            resize: none;
+            min-height: 44px;
+            max-height: 220px;
+            overflow: auto;
+        }
+
+        #command-input:focus {
+            border-color: rgba(78, 161, 255, 0.55);
+            box-shadow: 0 0 0 3px rgba(78, 161, 255, 0.18);
+        }
+
+        .completion-box {
+            position: fixed;
+            left: 0;
+            top: 0;
+            max-width: min(720px, 90vw);
+            max-height: 260px;
+            overflow: auto;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 6px;
+            display: none;
+            z-index: 9999;
+        }
+
+        .completion-box.open {
+            display: block;
+        }
+
+        .completion-item {
+            padding: 6px 8px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text);
+        }
+
+        .completion-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .completion-item.active {
+            background: rgba(78, 161, 255, 0.15);
+            border: 1px solid rgba(78, 161, 255, 0.35);
+        }
+
+        #send-btn {
+            padding: 10px 14px;
+            background: linear-gradient(180deg, rgba(78, 161, 255, 0.95), rgba(78, 161, 255, 0.75));
+            color: #06101f;
+            border: 1px solid rgba(78, 161, 255, 0.35);
+            border-radius: 12px;
+            cursor: pointer;
+            font: inherit;
+        }
+
+        #send-btn:hover {
+            filter: brightness(1.05);
+        }
+
+        .replay-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            cursor: pointer;
+            font-size: 13px;
+            padding: 2px 6px;
+            margin-left: 8px;
+            line-height: 1;
+        }
+
+        .replay-btn:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: var(--accent);
+        }
+
+        #send-btn:disabled {
+            cursor: not-allowed;
+            filter: grayscale(0.6) brightness(0.9);
+            opacity: 0.7;
+        }
+
+        .prompt {
+            color: rgba(78, 161, 255, 0.95);
+        }
+
+        .interaction-block {
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            margin-bottom: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .interaction-header {
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid var(--border);
+            font-family: monospace;
+            color: var(--accent);
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .interaction-body {
+            padding: 0;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .interaction-body .rank-group {
+            margin: 0;
+            border: none;
+            background: transparent;
+            border-radius: 0;
+        }
+
+        .system-message {
+            padding: 10px 14px;
+            color: var(--muted);
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            margin-bottom: 12px;
+            background: rgba(255, 50, 50, 0.05);
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <div class="header">
+            <div>
+                <div class="title">DPDB Web Debugger</div>
+                <div class="subtitle">
+                    by zhouquan
+                </div>
+            </div>
+            <div class="badge" id="status">Idle</div>
+        </div>
+
+        <div class="output">
+            <div class="output-toolbar">
+                <div class="badge">Output</div>
+                <div class="toolbar-right">
+                    <div class="view-toggle" role="tablist" aria-label="View Mode">
+                        <button class="toggle-btn" id="mode-tiled" type="button">平铺</button>
+                        <button class="toggle-btn" id="mode-station" type="button">点播台</button>
+                    </div>
+                    <button class="toggle-btn" id="mode-switch-btn" type="button" style="margin-left: 8px; border: 1px solid var(--border); background: rgba(0,0,0,0.2);">Switch to Terminal</button>
+                    <div class="badge" id="hint">Enter 换行 · Ctrl+Enter 发送 · Tab 补全</div>
+                </div>
+            </div>
+            <div id="output"></div>
+        </div>
+
+        <div class="input">
+            <textarea id="command-input" placeholder="Enter command…" autofocus></textarea>
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+
+    <div class="completion-box" id="completion-box" aria-label="Completions"></div>
+
+    <div class="modal" id="rank-modal" role="dialog" aria-modal="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div id="rank-modal-title">Rank</div>
+                <button class="modal-close" id="rank-modal-close">Close</button>
+            </div>
+            <div class="modal-body" id="rank-modal-body"></div>
+        </div>
+    </div>
+
+
+    <script>
+        const outputDiv = document.getElementById('output');
+        const commandInput = document.getElementById('command-input');
+        const sendBtn = document.getElementById('send-btn');
+        const statusEl = document.getElementById('status');
+        let backendDisconnected = false;
+        let backendStopping = false;
+        const rankModal = document.getElementById('rank-modal');
+        const rankModalTitle = document.getElementById('rank-modal-title');
+        const rankModalBody = document.getElementById('rank-modal-body');
+        const rankModalClose = document.getElementById('rank-modal-close');
+        let rankOutputStore = Object.create(null);
+        let rankOutputSeq = 0;
+        let lastSelectedRank = null;
+        let watchExprs = [];
+        let watchStore = Object.create(null);
+        const modeTiledBtn = document.getElementById('mode-tiled');
+        const modeStationBtn = document.getElementById('mode-station');
+        let viewMode = 'tiled';
+        const completionBox = document.getElementById('completion-box');
+        let completionState = null;
+        let isSending = false;
+        const MAX_HISTORY = 200;
+        const cmdHistory = [];
+        let cmdHistoryIndex = -1;
+
+        const ANSI_PALETTE_16 = {
+            30: '#000000',
+            31: '#e06c75',
+            32: '#98c379',
+            33: '#e5c07b',
+            34: '#61afef',
+            35: '#c678dd',
+            36: '#56b6c2',
+            37: '#d7dae0',
+            90: '#5c6370',
+            91: '#ff6c6b',
+            92: '#b4f8c8',
+            93: '#ffd866',
+            94: '#82aaff',
+            95: '#d484ff',
+            96: '#7fdbca',
+            97: '#ffffff',
+        };
+
+        function escapeHtml(s) {
+            return String(s)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
+        function styleToCss(style) {
+            const parts = [];
+            if (style.fg) parts.push(`color: ${style.fg}`);
+            if (style.bg) parts.push(`background-color: ${style.bg}`);
+            if (style.bold) parts.push('font-weight: 700');
+            if (style.underline) parts.push('text-decoration: underline');
+            if (style.italic) parts.push('font-style: italic');
+            return parts.join('; ');
+        }
+
+        function applySgrCodes(style, codes) {
+            if (!codes.length) codes = [0];
+            for (const raw of codes) {
+                const c = Number(raw);
+                if (Number.isNaN(c)) continue;
+                if (c === 0) {
+                    style.fg = null;
+                    style.bg = null;
+                    style.bold = false;
+                    style.underline = false;
+                    style.italic = false;
+                    continue;
+                }
+                if (c === 1) { style.bold = true; continue; }
+                if (c === 3) { style.italic = true; continue; }
+                if (c === 4) { style.underline = true; continue; }
+                if (c === 22) { style.bold = false; continue; }
+                if (c === 23) { style.italic = false; continue; }
+                if (c === 24) { style.underline = false; continue; }
+                if (c === 39) { style.fg = null; continue; }
+                if (c === 49) { style.bg = null; continue; }
+                if ((c >= 30 && c <= 37) || (c >= 90 && c <= 97)) {
+                    style.fg = ANSI_PALETTE_16[c] || style.fg;
+                    continue;
+                }
+                if ((c >= 40 && c <= 47) || (c >= 100 && c <= 107)) {
+                    const fgCode = (c >= 100) ? (c - 10) : (c - 10);
+                    style.bg = ANSI_PALETTE_16[fgCode] || style.bg;
+                    continue;
+                }
+            }
+        }
+
+        function ansiToHtml(input) {
+            const s = String(input ?? '');
+            const re = /\x1b\[([0-9;]*)m/g;
+            let lastIndex = 0;
+            let m;
+            const style = { fg: null, bg: null, bold: false, underline: false, italic: false };
+            let css = styleToCss(style);
+            let out = '';
+
+            while ((m = re.exec(s)) !== null) {
+                const chunk = s.slice(lastIndex, m.index);
+                if (chunk) {
+                    const escaped = escapeHtml(chunk);
+                    if (css) out += `<span style="${css}">${escaped}</span>`;
+                    else out += escaped;
+                }
+
+                const codes = m[1] ? m[1].split(';') : [];
+                applySgrCodes(style, codes);
+                css = styleToCss(style);
+                lastIndex = re.lastIndex;
+            }
+
+            const tail = s.slice(lastIndex);
+            if (tail) {
+                const escaped = escapeHtml(tail);
+                if (css) out += `<span style="${css}">${escaped}</span>`;
+                else out += escaped;
+            }
+
+            return out;
+        }
+
+        function tailLines(input, maxLines = 20) {
+            const s = String(input ?? '');
+            const lines = s.split('\n');
+            if (lines.length <= maxLines) return s;
+            return lines.slice(-maxLines).join('\n');
+        }
+
+        function createInteractionBlock(command) {
+            const block = document.createElement('div');
+            block.className = 'interaction-block';
+            cmdHistory.push(command);
+            if (cmdHistory.length > MAX_HISTORY) cmdHistory.shift();
+            const histIdx = cmdHistory.length - 1;
+            block.dataset.histIdx = histIdx;
+            block.innerHTML = `
+                <div class="interaction-header">
+                    <span>${escapeHtml(command)}</span>
+                    <button class="replay-btn" title="Replay this command" data-hist-idx="${histIdx}">&#x21BA;</button>
+                </div>
+                <div class="interaction-body"></div>
+            `;
+            block.querySelector('.replay-btn').addEventListener('click', () => {
+                commandInput.value = command;
+                commandInput.focus();
+            });
+            outputDiv.prepend(block);
+            outputDiv.scrollTop = 0;
+            return block.querySelector('.interaction-body');
+        }
+
+        function appendAnsi(text, container = null) {
+            const html = ansiToHtml(text);
+            if (container) {
+                container.innerHTML += `<div style="padding: 10px; white-space: pre-wrap;">${html}</div>`;
+            } else {
+                const msg = document.createElement('div');
+                msg.className = 'system-message';
+                msg.innerHTML = html;
+                outputDiv.prepend(msg);
+                outputDiv.scrollTop = 0;
+            }
+        }
+
+        function appendPrompt(command) {
+            // Deprecated in favor of createInteractionBlock
+        }
+
+        function setViewMode(mode) {
+            if (watchExprs.length) {
+                viewMode = 'station';
+            } else {
+                viewMode = (mode === 'station') ? 'station' : 'tiled';
+            }
+            try {
+                localStorage.setItem('mpdb_view_mode', viewMode);
+            } catch (e) {}
+            document.body.classList.toggle('mode-tiled', viewMode === 'tiled');
+            document.body.classList.toggle('mode-station', viewMode === 'station');
+            modeTiledBtn.classList.toggle('active', viewMode === 'tiled');
+            modeStationBtn.classList.toggle('active', viewMode === 'station');
+        }
+
+        function _readNumStorage(key) {
+            try {
+                const v = localStorage.getItem(key);
+                if (!v) return null;
+                const n = Number(v);
+                return Number.isFinite(n) ? n : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function setStationColumnWidths(ranksPx, watchPx) {
+            const r = Math.max(72, Math.min(240, Number(ranksPx)));
+            const w = Math.max(160, Math.min(520, Number(watchPx)));
+            document.documentElement.style.setProperty('--station-ranks-width', `${r}px`);
+            document.documentElement.style.setProperty('--station-watch-width', `${w}px`);
+            try {
+                localStorage.setItem('mpdb_station_ranks_width', String(r));
+                localStorage.setItem('mpdb_station_watch_width', String(w));
+            } catch (e) {}
+        }
+
+        function initStationColumnWidths() {
+            const r = _readNumStorage('mpdb_station_ranks_width');
+            const w = _readNumStorage('mpdb_station_watch_width');
+            if (r !== null || w !== null) {
+                const baseR = r !== null ? r : 96;
+                const baseW = w !== null ? w : 280;
+                setStationColumnWidths(baseR, baseW);
+            }
+        }
+
+        function longestCommonPrefix(items) {
+            if (!items || !items.length) return '';
+            let p = items[0] || '';
+            for (let i = 1; i < items.length; i++) {
+                const s = items[i] || '';
+                let j = 0;
+                const n = Math.min(p.length, s.length);
+                while (j < n && p[j] === s[j]) j++;
+                p = p.slice(0, j);
+                if (!p) break;
+            }
+            return p;
+        }
+
+        function closeCompletionBox() {
+            completionBox.classList.remove('open');
+            completionBox.innerHTML = '';
+            completionState = null;
+        }
+
+        function renderCompletionBox(matches, activeIndex, anchorRect) {
+            completionBox.innerHTML = matches.map((m, i) => {
+                const cls = (i === activeIndex) ? 'completion-item active' : 'completion-item';
+                return `<div class="${cls}" data-index="${i}">${escapeHtml(m)}</div>`;
+            }).join('');
+            const left = Math.min(anchorRect.left, window.innerWidth - completionBox.offsetWidth - 12);
+            const top = Math.min(anchorRect.bottom + 6, window.innerHeight - 280);
+            completionBox.style.left = `${Math.max(12, left)}px`;
+            completionBox.style.top = `${Math.max(12, top)}px`;
+            completionBox.classList.add('open');
+        }
+
+        function applyCompletion(match) {
+            if (!completionState) return;
+            const { line, start, end } = completionState;
+            const before = line.slice(0, start);
+            const after = line.slice(end);
+            const insert = match;
+            const next = before + insert + after;
+            commandInput.value = next;
+            const pos = before.length + insert.length;
+            commandInput.setSelectionRange(pos, pos);
+        }
+
+        async function requestCompletions(line, cursor) {
+            const resp = await fetch('/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ line, cursor })
+            });
+            const data = await resp.json();
+            if (!data || data.status !== 'ok') return null;
+            return data;
+        }
+
+        function appendRankGroup(resultByRank, container, watchExprsArg, watchByRankArg) {
+            const keys = Object.keys(resultByRank || {}).sort((a, b) => Number(a) - Number(b));
+            const seq = String(++rankOutputSeq);
+            const cards = keys.map((k) => {
+                const raw = String(resultByRank[k] ?? '');
+                const storeKey = `${seq}:${k}`;
+                rankOutputStore[storeKey] = raw;
+                const previewRaw = tailLines(raw, 20);
+                const preview = raw.length ? ansiToHtml(previewRaw) : `<span style="color: ${escapeHtml(getComputedStyle(document.documentElement).getPropertyValue('--muted'))}">empty</span>`;
+                return `
+<div class="rank-card" data-rank="${escapeHtml(k)}" data-store-key="${escapeHtml(storeKey)}">
+  <div class="rank-card-header">
+    <div>${escapeHtml(k)}</div>
+  </div>
+  <div class="rank-card-body">${preview}</div>
+</div>`;
+            }).join('');
+
+            const defaultRank = lastSelectedRank && keys.includes(lastSelectedRank) ? lastSelectedRank : (keys.includes('0') ? '0' : (keys[0] || '0'));
+            const defaultStoreKey = `${seq}:${defaultRank}`;
+            const defaultRaw = rankOutputStore[defaultStoreKey] || '';
+            const exprs = Array.isArray(watchExprsArg) ? watchExprsArg.map((s) => String(s ?? '')).filter((s) => s.trim().length) : [];
+            const byRank = (watchByRankArg && typeof watchByRankArg === 'object') ? watchByRankArg : null;
+            if (exprs.length) {
+                watchStore[seq] = { exprs, byRank: byRank || {} };
+            } else {
+                delete watchStore[seq];
+            }
+            const sideItems = keys.map((k) => {
+                const storeKey = `${seq}:${k}`;
+                const active = (k === defaultRank) ? 'active' : '';
+                return `
+<button class="station-rank-btn ${active}" type="button" data-rank="${escapeHtml(k)}" data-store-key="${escapeHtml(storeKey)}">${escapeHtml(k)}</button>`;
+            }).join('');
+
+            const watchRows = exprs.map((expr, i) => {
+                const values = (byRank && byRank[String(defaultRank)]) ? byRank[String(defaultRank)] : [];
+                const v = (Array.isArray(values) && i < values.length) ? String(values[i] ?? '') : '';
+                return `<div class="watch-row"><div class="watch-expr">[${i + 1}] ${escapeHtml(expr)}</div><div class="watch-val">${escapeHtml(v)}</div></div>`;
+            }).join('');
+
+            const groupHtml = `
+<div class="rank-group" data-seq="${escapeHtml(seq)}" data-selected-rank="${escapeHtml(defaultRank)}">
+  <div class="tiled-view">
+    <div class="rank-grid">${cards}</div>
+  </div>
+  <div class="station-view">
+    <div class="station-main" data-rank="${escapeHtml(defaultRank)}" data-store-key="${escapeHtml(defaultStoreKey)}">
+      <div class="station-main-header">
+        <div>${escapeHtml(defaultRank)}</div>
+      </div>
+      <div class="station-main-body">${ansiToHtml(defaultRaw)}</div>
+    </div>
+    <div class="station-side station-ranks">
+      <div class="station-side-header">Ranks</div>
+      <div class="station-side-list">${sideItems}</div>
+    </div>
+    <div class="station-divider" data-role="station-divider"></div>
+    <div class="station-side station-watch">
+      <div class="station-side-header">Watch</div>
+      <div class="station-side-list station-watch-list">${watchRows || '<div class=\"watch-row\"><div class=\"watch-expr\">No watch</div></div>'}</div>
+    </div>
+  </div>
+</div>`;
+
+            if (container) {
+                container.insertAdjacentHTML('beforeend', groupHtml);
+                // We need to find the element we just added. 
+                // Since container might have other things (though usually empty), lastElementChild is safe.
+                var groupEl = container.lastElementChild;
+            } else {
+                // Fallback for unexpected calls
+                outputDiv.insertAdjacentHTML('afterbegin', groupHtml); // Prepend if no container
+                var groupEl = outputDiv.firstElementChild;
+            }
+            
+            if (groupEl) {
+                groupEl.querySelectorAll('.rank-card-body, .station-main-body').forEach((el) => {
+                    try {
+                        el.scrollTop = el.scrollHeight;
+                    } catch (e) {}
+                });
+                // No need to scroll outputDiv to bottom anymore since we are prepending
+            }
+        }
+
+        function openRankModal(rank, raw) {
+            rankModalTitle.textContent = `Rank ${rank}`;
+            rankModalBody.innerHTML = ansiToHtml(raw);
+            try { rankModalBody.scrollTop = rankModalBody.scrollHeight; } catch (e) {}
+            rankModal.classList.add('open');
+        }
+
+        function closeRankModal() {
+            rankModal.classList.remove('open');
+        }
+
+        function updateWatchPanel(groupEl, rank) {
+            if (!groupEl) return;
+            const seq = groupEl.getAttribute('data-seq');
+            const listEl = groupEl.querySelector('.station-watch-list');
+            if (!listEl) return;
+            const entry = seq ? watchStore[String(seq)] : null;
+            const exprs = entry && Array.isArray(entry.exprs) ? entry.exprs : [];
+            const byRank = entry && entry.byRank && typeof entry.byRank === 'object' ? entry.byRank : {};
+            if (!exprs.length) {
+                listEl.innerHTML = '<div class="watch-row"><div class="watch-expr">No watch</div></div>';
+                return;
+            }
+            const values = Array.isArray(byRank[String(rank)]) ? byRank[String(rank)] : [];
+            listEl.innerHTML = exprs.map((expr, i) => {
+                const v = i < values.length ? String(values[i] ?? '') : '';
+                return `<div class="watch-row"><div class="watch-expr">[${i + 1}] ${escapeHtml(expr)}</div><div class="watch-val">${escapeHtml(v)}</div></div>`;
+            }).join('');
+        }
+
+        function setStationSelected(groupEl, rank, storeKey) {
+            if (!groupEl) return;
+            lastSelectedRank = String(rank);
+            try {
+                localStorage.setItem('mpdb_station_selected_rank', lastSelectedRank);
+            } catch (e) {}
+            groupEl.setAttribute('data-selected-rank', String(rank));
+            const main = groupEl.querySelector('.station-main');
+            if (main) {
+                main.setAttribute('data-rank', String(rank));
+                main.setAttribute('data-store-key', String(storeKey));
+                const header = main.querySelector('.station-main-header > div:first-child');
+                if (header) header.textContent = `Rank ${rank}`;
+                const body = main.querySelector('.station-main-body');
+                const raw = rankOutputStore[String(storeKey)] || '';
+                if (body) {
+                    body.innerHTML = ansiToHtml(raw);
+                    try {
+                        body.scrollTop = body.scrollHeight;
+                    } catch (e) {}
+                }
+            }
+            groupEl.querySelectorAll('.station-rank-btn').forEach((el) => {
+                el.classList.toggle('active', el.getAttribute('data-rank') === String(rank));
+            });
+            updateWatchPanel(groupEl, rank);
+        }
+
+        async function sendCommand() {
+            if (isSending) return;
+            const command = commandInput.value;
+            if (!command) return;
+            
+            const interactionBody = createInteractionBlock(command);
+            commandInput.value = '';
+            commandInput.style.height = '';
+
+            try {
+                isSending = true;
+                statusEl.textContent = 'Running…';
+                sendBtn.disabled = true;
+                const response = await fetch('/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command: command })
+                });
+                const data = await response.json();
+                if (data.result_by_rank) {
+                    const serverExprs = Array.isArray(data.watch_exprs)
+                        ? data.watch_exprs
+                        : (String(data.watch_expr ?? '').trim() ? [String(data.watch_expr).trim()] : []);
+                    watchExprs = serverExprs.map((s) => String(s ?? '')).filter((s) => s.trim().length);
+                    document.body.classList.toggle('watch-enabled', Boolean(watchExprs.length));
+                    if (watchExprs.length) setViewMode('station');
+                    appendRankGroup(data.result_by_rank, interactionBody, watchExprs, data.watch_by_rank);
+                    if (data.exited) {
+                        commandInput.disabled = true;
+                        sendBtn.disabled = true;
+                        statusEl.textContent = 'Disconnected';
+                    }
+                } else if (data.result) {
+                    appendAnsi(data.result, interactionBody);
+                }
+            } catch (error) {
+                appendAnsi(`Error: ${error}`, interactionBody);
+            } finally {
+                sendBtn.disabled = false;
+                statusEl.textContent = 'Idle';
+                isSending = false;
+            }
+        }
+
+        async function pollBackendStatus() {
+            try {
+                const resp = await fetch('/status', { cache: 'no-store' });
+                if (!resp.ok) throw new Error(`status ${resp.status}`);
+                const data = await resp.json();
+
+                const serverExprs = Array.isArray(data.watch_exprs) ? data.watch_exprs : [];
+                const nextExprs = serverExprs.map((s) => String(s ?? '')).filter((s) => s.trim().length);
+                const hadWatch = Boolean(watchExprs.length);
+                const hasWatch = Boolean(nextExprs.length);
+                if (!hadWatch && hasWatch) {
+                    watchExprs = nextExprs;
+                    document.body.classList.add('watch-enabled');
+                    setViewMode('station');
+                } else if (hadWatch && !hasWatch) {
+                    watchExprs = [];
+                    document.body.classList.remove('watch-enabled');
+                }
+                
+                const modeBtn = document.getElementById('mode-switch-btn');
+                if (data.ui_mode === 'cli') {
+                    modeBtn.textContent = 'Switch to Web';
+                    statusEl.textContent = 'Terminal Mode';
+                    commandInput.disabled = true;
+                    commandInput.placeholder = 'Input disabled in Terminal Mode';
+                    sendBtn.disabled = true;
+                } else {
+                    modeBtn.textContent = 'Switch to Terminal';
+                    if (commandInput.disabled && !backendStopping && !backendDisconnected) {
+                         commandInput.disabled = false;
+                         commandInput.placeholder = 'Enter command…';
+                         sendBtn.disabled = false;
+                         statusEl.textContent = 'Connected';
+                    }
+                }
+
+                if (backendDisconnected) {
+                    backendDisconnected = false;
+                }
+                if (data && data.state) {
+                    if (data.state === 'running') {
+                        if (!backendStopping) {
+                            if (data.ui_mode !== 'cli') statusEl.textContent = 'Connected';
+                        }
+                    } else {
+                        if (!backendStopping) {
+                            backendStopping = true;
+                            const msg = data.message ? `Backend exiting: ${data.message}` : 'Backend exiting';
+                            appendAnsi(msg);
+                            commandInput.disabled = true;
+                            sendBtn.disabled = true;
+                            statusEl.textContent = 'Disconnected';
+                        }
+                    }
+                }
+            } catch (e) {
+                if (!backendDisconnected) {
+                    backendDisconnected = true;
+                    appendAnsi('Backend disconnected');
+                    commandInput.disabled = true;
+                    sendBtn.disabled = true;
+                    statusEl.textContent = 'Disconnected';
+                }
+            }
+        }
+
+        async function toggleMode() {
+            const btn = document.getElementById('mode-switch-btn');
+            const isToWeb = btn.textContent.includes('Web');
+            const cmd = isToWeb ? 'z web' : 'z terminal';
+            try {
+                await fetch('/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command: cmd })
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        document.getElementById('mode-switch-btn').addEventListener('click', toggleMode);
+
+        function resizeTextareaToContent() {
+            commandInput.style.height = '';
+            const max = 220;
+            const next = Math.min(max, Math.max(44, commandInput.scrollHeight));
+            commandInput.style.height = `${next}px`;
+        }
+
+        function getCurrentLineInfo(value, cursor) {
+            const before = value.slice(0, cursor);
+            const lineStart = before.lastIndexOf('\n') + 1;
+            const line = value.slice(lineStart, value.indexOf('\n', lineStart) === -1 ? value.length : value.indexOf('\n', lineStart));
+            const indentMatch = line.match(/^\s*/);
+            const indent = indentMatch ? indentMatch[0] : '';
+            const trimmed = line.trim();
+            return { lineStart, line, indent, trimmed };
+        }
+
+        function computeNextIndent(prevIndent, trimmedLine) {
+            if (!trimmedLine) return prevIndent;
+            const dedentKeywords = ['elif', 'else', 'except', 'finally'];
+            const firstWord = trimmedLine.split(/\s+/, 1)[0];
+            let indent = prevIndent;
+            if (dedentKeywords.includes(firstWord) && indent.length >= 4) {
+                indent = indent.slice(0, indent.length - 4);
+            }
+            if (trimmedLine.endsWith(':')) {
+                indent = indent + '    ';
+            }
+            return indent;
+        }
+
+        function insertNewlineWithIndent() {
+            const value = commandInput.value;
+            const cursor = commandInput.selectionStart ?? value.length;
+            const { indent, trimmed } = getCurrentLineInfo(value, cursor);
+            const nextIndent = computeNextIndent(indent, trimmed);
+            const before = value.slice(0, cursor);
+            const after = value.slice(cursor);
+            const insert = '\n' + nextIndent;
+            const next = before + insert + after;
+            commandInput.value = next;
+            const pos = before.length + insert.length;
+            commandInput.setSelectionRange(pos, pos);
+            resizeTextareaToContent();
+        }
+
+        function shouldSendOnEnter(value, cursor) {
+            const v = String(value ?? '');
+            if (v.includes('\n')) return false;
+            const s = v.trim();
+            if (!s) return false;
+            if (s.endsWith(':')) return false;
+            if (s.startsWith('!')) return false;
+            const first = s.split(/\s+/, 1)[0];
+            const simple = new Set(['n', 'next', 's', 'step', 'c', 'cont', 'continue', 'r', 'return', 'q', 'quit', 'exit', 'l', 'll', 'where', 'w', 'bt', 'up', 'down', 'h', 'help']);
+            if (simple.has(first)) return true;
+            if (first === 'p' || first === 'pp' || first === 'whatis') return true;
+            return true;
+        }
+
+        sendBtn.addEventListener('click', sendCommand);
+        commandInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                (async () => {
+                    const line = commandInput.value;
+                    const cursor = commandInput.selectionStart ?? line.length;
+
+                    if (completionState && completionState.line === line && completionState.cursor === cursor && completionState.matches && completionState.matches.length) {
+                        completionState.index = (completionState.index + 1) % completionState.matches.length;
+                        applyCompletion(completionState.matches[completionState.index]);
+                        const rect = commandInput.getBoundingClientRect();
+                        renderCompletionBox(completionState.matches, completionState.index, rect);
+                        return;
+                    }
+
+                    const data = await requestCompletions(line, cursor);
+                    if (!data || !data.matches || !data.matches.length) {
+                        closeCompletionBox();
+                        return;
+                    }
+
+                    const start = Number(data.start ?? cursor);
+                    const end = Number(data.end ?? cursor);
+                    const matches = Array.from(new Set(data.matches)).sort();
+
+                    const token = line.slice(start, end);
+                    const lcp = longestCommonPrefix(matches);
+                    if (lcp && lcp.length > token.length) {
+                        completionState = { line, cursor, start, end, matches, index: matches.indexOf(lcp) >= 0 ? matches.indexOf(lcp) : 0 };
+                        applyCompletion(lcp);
+                        closeCompletionBox();
+                        return;
+                    }
+
+                    completionState = { line, cursor, start, end, matches, index: 0 };
+                    applyCompletion(matches[0]);
+                    const rect = commandInput.getBoundingClientRect();
+                    renderCompletionBox(matches, 0, rect);
+                })();
+                return;
+            }
+
+            if (e.key === 'Enter') {
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    closeCompletionBox();
+                    sendCommand();
+                    return;
+                }
+                const value = commandInput.value;
+                const cursor = commandInput.selectionStart ?? value.length;
+                if (shouldSendOnEnter(value, cursor)) {
+                    e.preventDefault();
+                    closeCompletionBox();
+                    sendCommand();
+                } else {
+                    e.preventDefault();
+                    closeCompletionBox();
+                    insertNewlineWithIndent();
+                }
+            }
+
+            if (e.key === 'ArrowUp') {
+                const cursor = commandInput.selectionStart ?? 0;
+                if (cursor === 0 && cmdHistory.length) {
+                    e.preventDefault();
+                    if (cmdHistoryIndex === -1) {
+                        cmdHistoryIndex = cmdHistory.length - 1;
+                    } else {
+                        cmdHistoryIndex = Math.max(0, cmdHistoryIndex - 1);
+                    }
+                    commandInput.value = cmdHistory[cmdHistoryIndex];
+                    commandInput.setSelectionRange(commandInput.value.length, commandInput.value.length);
+                    resizeTextareaToContent();
+                }
+                return;
+            }
+
+            if (e.key === 'ArrowDown') {
+                if (cmdHistoryIndex !== -1) {
+                    e.preventDefault();
+                    if (cmdHistoryIndex === cmdHistory.length - 1) {
+                        cmdHistoryIndex = -1;
+                        commandInput.value = '';
+                    } else {
+                        cmdHistoryIndex = cmdHistoryIndex + 1;
+                        commandInput.value = cmdHistory[cmdHistoryIndex];
+                    }
+                    commandInput.setSelectionRange(commandInput.value.length, commandInput.value.length);
+                    resizeTextareaToContent();
+                }
+                return;
+            }
+        });
+
+        commandInput.addEventListener('input', () => {
+            closeCompletionBox();
+            resizeTextareaToContent();
+        });
+
+        commandInput.addEventListener('blur', () => {
+            setTimeout(() => closeCompletionBox(), 100);
+        });
+
+        completionBox.addEventListener('mousedown', (e) => {
+            const item = e.target.closest('.completion-item');
+            if (!item || !completionState) return;
+            e.preventDefault();
+            const idx = Number(item.getAttribute('data-index'));
+            if (!Number.isFinite(idx)) return;
+            completionState.index = idx;
+            applyCompletion(completionState.matches[idx]);
+            closeCompletionBox();
+            commandInput.focus();
+        });
+
+        outputDiv.addEventListener('click', (e) => {
+            const stationRankBtn = e.target.closest('.station-rank-btn');
+            if (stationRankBtn) {
+                const groupEl = stationRankBtn.closest('.rank-group');
+                const rank = stationRankBtn.getAttribute('data-rank');
+                const storeKey = stationRankBtn.getAttribute('data-store-key');
+                if (groupEl && rank && storeKey) {
+                    setStationSelected(groupEl, rank, storeKey);
+                }
+                return;
+            }
+
+            const stationMain = e.target.closest('.station-main');
+            if (stationMain) {
+                return;
+            }
+
+            const card = e.target.closest('.rank-card');
+            if (!card) return;
+            if (viewMode !== 'tiled') return;
+            const rank = card.getAttribute('data-rank');
+            const storeKey = card.getAttribute('data-store-key');
+            if (!storeKey) return;
+            const raw = rankOutputStore[storeKey] ?? '';
+            openRankModal(rank, raw);
+        });
+
+        document.addEventListener('mousedown', (e) => {
+            const divider = e.target.closest('.station-divider');
+            if (!divider) return;
+            if (!document.body.classList.contains('watch-enabled')) return;
+            if (!document.body.classList.contains('mode-station')) return;
+
+            e.preventDefault();
+            const rootStyle = getComputedStyle(document.documentElement);
+            const startRanks = Number.parseFloat(rootStyle.getPropertyValue('--station-ranks-width')) || 96;
+            const startWatch = Number.parseFloat(rootStyle.getPropertyValue('--station-watch-width')) || 280;
+            const total = startRanks + startWatch;
+            const startX = e.clientX;
+
+            function onMove(ev) {
+                const dx = ev.clientX - startX;
+                const minRanks = 72;
+                const minWatch = 160;
+                let nextRanks = startRanks + dx;
+                nextRanks = Math.max(minRanks, Math.min(total - minWatch, nextRanks));
+                const nextWatch = total - nextRanks;
+                setStationColumnWidths(nextRanks, nextWatch);
+            }
+
+            function onUp() {
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('mouseup', onUp);
+            }
+
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+        });
+
+        initStationColumnWidths();
+        rankModalClose.addEventListener('click', closeRankModal);
+        rankModal.addEventListener('click', (e) => {
+            if (e.target === rankModal) closeRankModal();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeRankModal();
+        });
+        modeTiledBtn.addEventListener('click', () => setViewMode('tiled'));
+        modeStationBtn.addEventListener('click', () => setViewMode('station'));
+        try {
+            const savedRank = localStorage.getItem('mpdb_station_selected_rank');
+            if (savedRank && String(savedRank).trim()) {
+                lastSelectedRank = String(savedRank).trim();
+            }
+        } catch (e) {}
+        try {
+            const saved = localStorage.getItem('mpdb_view_mode');
+            setViewMode(saved === 'station' ? 'station' : 'tiled');
+        } catch (e) {
+            setViewMode('tiled');
+        }
+
+        pollBackendStatus();
+        setInterval(pollBackendStatus, 1000);
+    </script>
+</body>
+</html>

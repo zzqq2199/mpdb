@@ -1,0 +1,39 @@
+.DS_Store
+
+# Virtual environments
+.venv/
+venv/
+.python-version
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build and packaging artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Test and coverage outputs
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+
+# Type checker and linter caches
+.mypy_cache/
+.ruff_cache/
+.pyre/
+
+# Editor settings
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
