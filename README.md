@@ -2,30 +2,43 @@
 
 `mpdb` (Multiprocess PDB) is a lightweight distributed debugger built on top of `ipdb`.
 
+Repository: <https://github.com/zzqq2199/mpdb>
+
 > **Note:** This project was formerly known as `dpdb`. The `dpdb` package name on PyPI was already taken, so it has been renamed to `mpdb`. Both `import mpdb` and `import dpdb` are supported with identical functionality.
 
 ## Release Notes
 
+- 1.1.2: update the README documentation.
+  - Add the repository link for easier source code access.
+  - Clarify installation options: PyPI as recommended, GitHub as optional.
 - 1.1.1: rename internal identifiers and assets to `mpdb`.
-    - All internal identifiers (`dpdb_rank` → `rank`, `dpdb_world_size` → `world_size`) renamed for consistency.
-    - Demo files and test files renamed to `mpdb`.
-    - `localStorage` keys in web UI updated to `mpdb_*` prefix.
-    - Prompt updated to `[mpdb]>>>`.
+  - All internal identifiers (`dpdb_rank` → `rank`, `dpdb_world_size` → `world_size`) renamed for consistency.
+  - Demo files and test files renamed to `mpdb`.
+  - `localStorage` keys in web UI updated to `mpdb_*` prefix.
+  - Prompt updated to `[mpdb]>>>`.
 - 1.1.0: rename from `dpdb` to `mpdb`.
-    - PyPI package name `dpdb` was already taken, renamed to `mpdb` (Multiprocess PDB).
-    - Full backward compatibility: both `import mpdb` and `import dpdb` work identically.
-    - `pip install mpdb` is the recommended installation method.
+  - PyPI package name `dpdb` was already taken, renamed to `mpdb` (Multiprocess PDB).
+  - Full backward compatibility: both `import mpdb` and `import dpdb` work identically.
+  - `pip install mpdb` is the recommended installation method.
 - 1.0.0: first public release version.
-    - single-process debugging
-    - distributed command broadcast
-    - file-based synchronization for non-`torch.distributed` scenarios
-    - a built-in web UI
-    - switching between web and terminal modes during a session
+  - single-process debugging
+  - distributed command broadcast
+  - file-based synchronization for non-`torch.distributed` scenarios
+  - a built-in web UI
+  - switching between web and terminal modes during a session
 
 ## Install
 
+Recommended (PyPI):
+
 ```bash
 pip install mpdb
+```
+
+Optional (GitHub):
+
+```bash
+pip install git+https://github.com/zzqq2199/mpdb.git
 ```
 
 ## Quick Start
