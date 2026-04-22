@@ -7,6 +7,12 @@ Repository: <https://github.com/zzqq2199/mpdb>
 > **Note:** This project was formerly known as `dpdb`. The `dpdb` package name on PyPI was already taken, so it has been renamed to `mpdb`. Both `import mpdb` and `import dpdb` are supported with identical functionality.
 
 ## Release Notes
+- 1.2.1: improve default web header description and link rendering.
+  - `mpdb` now sets a default web header description on first import only, avoiding overrides when users have already called `set_description(...)`.
+  - Default subtitle is updated to an official site link: `https://github.com/zzqq2199/mpdb`.
+  - Web UI header rendering now supports safe `<a>` links in both `title` and `subtitle`.
+  - `dpdb` now sets its default title via `set_description(title="DPDB Web Debugger")`.
+  - Minor backend robustness updates: add typing for description state, guard `pkgutil.get_data(...)` when `__package__` is empty, and only invoke saved signal handlers when callable.
 - 1.2.0: add `set_description()` API for customizing web UI header.
   - New `mpdb.web_pdb.set_description(title, subtitle)` function to override the default "MPDB Web Debugger" title and "by zhouquan" subtitle at runtime.
   - The `/status` API now includes `title` and `subtitle` fields when set.

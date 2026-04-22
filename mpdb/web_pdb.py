@@ -7,6 +7,7 @@ import atexit
 import time
 import signal
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+from typing import Dict, Optional
 
 COMMAND_QUEUE = queue.Queue()
 RESPONSE_QUEUE = queue.Queue()
@@ -20,9 +21,9 @@ _STATUS = {"state": "starting", "message": "", "ts": 0.0}
 _DEBUGGER_LOCK = threading.Lock()
 _DEBUGGER = None
 _DESCRIPTION_LOCK = threading.Lock()
-_DESCRIPTION = {"title": None, "subtitle": None}
+_DESCRIPTION: Dict[str, Optional[str]] = {"title": None, "subtitle": None}
 
-def set_description(title=None, subtitle=None):
+def set_description(title: Optional[str] = None, subtitle: Optional[str] = None):
     with _DESCRIPTION_LOCK:
         if title is not None:
             _DESCRIPTION["title"] = str(title)
@@ -69,7 +70,9 @@ class WebPdbHandler(SimpleHTTPRequestHandler):
             if html is None:
                 try:
                     import pkgutil
-                    html = pkgutil.get_data(__package__, 'templates/index.html')
+                    pkg = __package__
+                    if pkg:
+                        html = pkgutil.get_data(pkg, 'templates/index.html')
                 except Exception:
                     html = None
 
@@ -276,9 +279,9 @@ def _signal_handler(signum, frame):
     try:
         stop_web_server("Interrupted by signal")
     finally:
-        if signum == signal.SIGINT and _ORIG_SIGINT:
+        if signum == signal.SIGINT and callable(_ORIG_SIGINT):
             _ORIG_SIGINT(signum, frame)
-        elif signum == signal.SIGTERM and _ORIG_SIGTERM:
+        elif signum == signal.SIGTERM and callable(_ORIG_SIGTERM):
             _ORIG_SIGTERM(signum, frame)
 
 def _install_signal_handlers():

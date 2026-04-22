@@ -172,9 +172,18 @@ def _get_debugger_cls():
             self.prompt = __prompt__
             self.rank = GetDistInfo.get_rank()
             if self.rank == 0:
-                print(f"is_distributed={GetDistInfo.is_distributed()}")
+                is_dist = bool(GetDistInfo.is_distributed())
                 if self.web_mode:
                     print("Web mode enabled")
+                tip_parts = []
+                if is_dist:
+                    tip_parts.append("You are in distributed debugging mode.")
+                else:
+                    tip_parts.append("You are in single-process debugging mode.")
+                if not self.web_mode:
+                    tip_parts.append("Use `z web` to switch to web mode.")
+                if tip_parts:
+                    print("Tip: " + " ".join(tip_parts))
             self.all = True
             if self.web_mode:
                 self.ui_mode = 'web'

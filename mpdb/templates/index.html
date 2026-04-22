@@ -62,6 +62,16 @@
             color: var(--muted);
         }
 
+        .title a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        .subtitle a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
         .output {
             border: 1px solid var(--border);
             background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.02));
@@ -675,6 +685,42 @@
                 .replaceAll("'", '&#039;');
         }
 
+        function sanitizeHeaderHtml(html) {
+            // Allow only <a> tags with safe href; everything else becomes text.
+            const tpl = document.createElement('template');
+            tpl.innerHTML = String(html ?? '');
+            const root = tpl.content;
+
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null);
+            const elements = [];
+            while (walker.nextNode()) elements.push(walker.currentNode);
+
+            for (const el of elements) {
+                const tag = String(el.tagName || '').toUpperCase();
+                if (tag === 'A') {
+                    const href = el.getAttribute('href') || '';
+                    const ok = href.startsWith('https://') || href.startsWith('http://');
+                    if (!ok) {
+                        el.replaceWith(document.createTextNode(el.textContent || ''));
+                        continue;
+                    }
+                    // Strip all attributes then set a safe subset.
+                    for (const attr of Array.from(el.attributes)) {
+                        el.removeAttribute(attr.name);
+                    }
+                    el.setAttribute('href', href);
+                    el.setAttribute('target', '_blank');
+                    el.setAttribute('rel', 'noreferrer noopener');
+                    continue;
+                }
+                el.replaceWith(document.createTextNode(el.textContent || ''));
+            }
+
+            const out = document.createElement('div');
+            out.appendChild(root.cloneNode(true));
+            return out.innerHTML;
+        }
+
         function styleToCss(style) {
             const parts = [];
             if (style.fg) parts.push(`color: ${style.fg}`);
@@ -1107,11 +1153,11 @@
                     document.body.classList.remove('watch-enabled');
                 }
 
-                if (data.title) {
-                    document.getElementById('header-title').textContent = data.title;
+                if (data.title !== undefined) {
+                    document.getElementById('header-title').innerHTML = sanitizeHeaderHtml(data.title);
                 }
                 if (data.subtitle !== undefined) {
-                    document.getElementById('header-subtitle').textContent = data.subtitle;
+                    document.getElementById('header-subtitle').innerHTML = sanitizeHeaderHtml(data.subtitle);
                 }
                 
                 const modeBtn = document.getElementById('mode-switch-btn');
