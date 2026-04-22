@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>DPDB Web Debugger</title>
+    <title>MPDB Web Debugger</title>
     <style>
         :root {
             --bg: #0f111a;
@@ -579,8 +579,8 @@
     <div class="app">
         <div class="header">
             <div>
-                <div class="title">DPDB Web Debugger</div>
-                <div class="subtitle">
+                <div class="title" id="header-title">MPDB Web Debugger</div>
+                <div class="subtitle" id="header-subtitle">
                     by zhouquan
                 </div>
             </div>
@@ -1105,6 +1105,13 @@
                 } else if (hadWatch && !hasWatch) {
                     watchExprs = [];
                     document.body.classList.remove('watch-enabled');
+                }
+
+                if (data.title) {
+                    document.getElementById('header-title').textContent = data.title;
+                }
+                if (data.subtitle !== undefined) {
+                    document.getElementById('header-subtitle').textContent = data.subtitle;
                 }
                 
                 const modeBtn = document.getElementById('mode-switch-btn');

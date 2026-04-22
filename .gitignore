@@ -37,3 +37,5 @@ htmlcov/
 
 # Jupyter
 .ipynb_checkpoints/
+
+uv.lock

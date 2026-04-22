@@ -19,6 +19,19 @@ _STATUS_LOCK = threading.Lock()
 _STATUS = {"state": "starting", "message": "", "ts": 0.0}
 _DEBUGGER_LOCK = threading.Lock()
 _DEBUGGER = None
+_DESCRIPTION_LOCK = threading.Lock()
+_DESCRIPTION = {"title": None, "subtitle": None}
+
+def set_description(title=None, subtitle=None):
+    with _DESCRIPTION_LOCK:
+        if title is not None:
+            _DESCRIPTION["title"] = str(title)
+        if subtitle is not None:
+            _DESCRIPTION["subtitle"] = str(subtitle)
+
+def _get_description():
+    with _DESCRIPTION_LOCK:
+        return dict(_DESCRIPTION)
 
 def _set_status(state, message=""):
     with _STATUS_LOCK:
@@ -82,6 +95,11 @@ class WebPdbHandler(SimpleHTTPRequestHandler):
             if debugger:
                 payload['ui_mode'] = getattr(debugger, 'ui_mode', 'web')
                 payload['watch_exprs'] = list(getattr(debugger, 'watch_exprs', []) or [])
+            desc = _get_description()
+            if desc.get('title') is not None:
+                payload['title'] = desc['title']
+            if desc.get('subtitle') is not None:
+                payload['subtitle'] = desc['subtitle']
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.send_header('Cache-Control', 'no-store')

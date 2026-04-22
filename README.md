@@ -7,7 +7,11 @@ Repository: <https://github.com/zzqq2199/mpdb>
 > **Note:** This project was formerly known as `dpdb`. The `dpdb` package name on PyPI was already taken, so it has been renamed to `mpdb`. Both `import mpdb` and `import dpdb` are supported with identical functionality.
 
 ## Release Notes
-
+- 1.2.0: add `set_description()` API for customizing web UI header.
+  - New `mpdb.web_pdb.set_description(title, subtitle)` function to override the default "MPDB Web Debugger" title and "by zhouquan" subtitle at runtime.
+  - The `/status` API now includes `title` and `subtitle` fields when set.
+  - The web UI dynamically updates the header text from the backend status response.
+  - `dpdb` package calls `set_description("DPDB Web Debugger")` automatically on import.
 - 1.1.2: update the README documentation.
   - Add the repository link for easier source code access.
   - Clarify installation options: PyPI as recommended, GitHub as optional.
